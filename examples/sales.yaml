@@ -1,0 +1,17 @@
+dataset: sales
+data_schema:
+  id: int
+  amount: float
+  churn: str
+sla:
+  completeness: 0.99
+rules:
+  - amount > 0
+ai_checks:
+  field_baselines:
+    amount_mean: 100
+    amount_variance: 50
+  labels: consistent
+lineage:
+  source: raw_sales.csv
+  version: v1

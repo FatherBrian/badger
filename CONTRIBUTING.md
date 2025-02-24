@@ -5,7 +5,7 @@ We welcome contributions! Please follow these steps to get started:
 1. **Fork the repository** on GitHub.
 2. Clone your fork locally:
    ```bash
-   git clone https://github.com/your-username/badger.git
+   git clone https://github.com/fatherbrian/badger.git
    cd badger
    ```
 3. Install dependencies:
@@ -18,8 +18,8 @@ We welcome contributions! Please follow these steps to get started:
    ```
 
 ### **2️⃣ Making Contributions**
-- **Report Issues**: Found a bug? Open an [issue](https://github.com/badger/issues).
-- **Feature Requests**: Suggest enhancements in [discussions](https://github.com/badger/discussions).
+- **Report Issues**: Found a bug? Open an [issue]
+- **Feature Requests**: Suggest enhancements in [discussions]
 - **Code Contributions**:
   1. Create a new branch:
      ```bash

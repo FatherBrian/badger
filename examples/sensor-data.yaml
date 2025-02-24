@@ -1,0 +1,16 @@
+dataset: sensor_data
+schema:
+  sensor_id: int
+  temp: float
+  status: str
+sla:
+  completeness: 0.95
+rules:
+  - temp > -50
+ai_checks:
+  field_baselines:
+    temp_mean: 20
+  labels: consistent
+lineage:
+  source: raw_sensors.csv
+  version: v1

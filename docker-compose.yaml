@@ -1,0 +1,139 @@
+version: '3.8'
+
+services:
+  # 🟢 MongoDB for storing metadata & contracts
+  mongo:
+    image: mongo:5.0
+    container_name: badger-mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper
+    restart: always
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka
+    restart: always
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+
+  # 🟡 Python Validation Engine
+  validation_engine:
+    build: ./validation_engine
+    container_name: validation_engine
+    restart: always
+    depends_on:
+      mongo:
+        condition: service_healthy
+    env_file:
+      - .env
+    ports:
+      - "5001:5001"
+    volumes:
+      - ./validation_engine:/app
+    command: ["python", "main.py"]
+
+  # 🔵 Go API Server
+  api:
+    build: ./api
+    container_name: api
+    restart: always
+    depends_on:
+      validation_engine:
+        condition: service_started
+      mongo:
+        condition: service_healthy
+    env_file:
+      - .env
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./api:/app
+    command: ["go", "run", "main.go"]
+
+
+  # 🔴 Next.js UI
+  ui:
+    build: ./ui
+    container_name: ui
+    restart: always
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./ui:/app
+    command: ["npm", "run", "start"]
+
+  # 🟠 Apache Airflow (With PostgreSQL for metadata & Redis for queueing)
+  postgres:
+    image: postgres:13
+    container_name: airflow_postgres
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:6
+    container_name: airflow_redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+  airflow:
+    build: ./airflow
+    container_name: airflow
+    restart: always
+    depends_on:
+      - postgres
+      - redis
+      - api
+    ports:
+      - "8080:8080"
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      - AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0
+      - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres:5432/airflow
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/plugins:/opt/airflow/plugins
+      - airflow_logs:/opt/airflow/logs
+    command: ["airflow", "standalone"]
+
+volumes:
+  mongo_data:
+  postgres_data:
+  airflow_logs:
